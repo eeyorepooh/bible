@@ -125,6 +125,25 @@
      it still works; it's just collapsed to zero height and hidden from view. */
   .sub-header-anchor { grid-column: 1 / -1; height: 0; margin: 0; padding: 0; border: 0; overflow: hidden; visibility: hidden; scroll-margin-top: 20px; }
 
+  /* When a verse-picker (or TOC) h4 link is followed, its anchor is revealed here as a
+     plain text line with a red vertical marker on the left — showing which section to
+     read. Stays visible (and stays put on the left) regardless of the "show original
+     text" toggle, since this element spans the full width outside the col-left/col-right
+     split. Only one anchor is ever marked at a time — see markAnchor() below. */
+  .sub-header-anchor.anchor-marked {
+    height: auto;
+    margin: 0;
+    padding: 8px 10px;
+    border: 0;
+    border-left: 4px solid #d32f2f;
+    overflow: visible;
+    visibility: visible;
+    background: #fff5f5;
+    color: #000;
+    font-weight: 700;
+    font-family: 'Trebuchet MS', 'Trebuchet SMS', sans-serif;
+  }
+
   .text-segment { padding: 12px; background-color: #ffffff; border: 1px solid transparent; border-radius: 4px; font-family: Georgia, 'Times New Roman', serif; line-height: 1.6; }
   .col-right { letter-spacing: 2px; font-weight: 600; text-transform: uppercase; }
   .highlight-blue { background-color: #e3f2fd !important; border-color: #bbdefb !important; }
@@ -773,8 +792,22 @@
   // Shared by TOC clicks AND incoming links from other pages (e.g. verse.html linking to
   // an #anchor here): opens every collapsed ancestor <details> (the h1 chapter, and the h2
   // section itself if it was individually collapsed), then scrolls the target into view.
+  // Tracks whichever h4 anchor is currently revealed/marked, so clicking a new one clears
+  // the old mark first — only one section is ever marked as "here" at a time.
+  let markedAnchor = null;
+  function markAnchor(target) {
+      if (!target || !target.classList || !target.classList.contains('sub-header-anchor')) return;
+      if (markedAnchor && markedAnchor !== target) {
+          markedAnchor.classList.remove('anchor-marked');
+      }
+      target.classList.add('anchor-marked');
+      markedAnchor = target;
+  }
+
   function openAncestorsAndScroll(target) {
       if (!target) return;
+
+      markAnchor(target);
 
       if (target.tagName === 'DETAILS') target.open = true;
       let ancestor = target.parentElement;
@@ -962,6 +995,7 @@
                   const anchor = document.createElement('div');
                   anchor.id = chapterId;
                   anchor.className = 'sub-header-anchor';
+                  anchor.textContent = rawTitleText;
                   anchor.setAttribute('aria-hidden', 'true');
                   currentGrid.appendChild(anchor);
               } else {
@@ -1035,6 +1069,7 @@
               const reader = new FileReader();
               reader.onload = function(event) {
                   textInput.value = event.target.result;
+                  saveBibleMarkup(textInput.value);
                   updateView();
               };
               reader.readAsText(file);
@@ -1054,7 +1089,18 @@
       document.getElementById('leftLabel').textContent = this.checked ? "Hide Original Text" : "Show Original Text";
   });
 
-  textInput.addEventListener('input', updateView);
+  // Persist the Master Book Workspace text so edits survive a reload — mirrors the
+  // 'verseBuilderMarkup' pattern verse.html already uses for its own textarea. Without
+  // this, typing in the box only updated the on-page view; a refresh silently re-fetched
+  // biblecontents.txt from disk and threw the edits away.
+  function saveBibleMarkup(text) {
+      safeSetStorage('bibleBuilderMarkup', text);
+  }
+
+  textInput.addEventListener('input', function() {
+      saveBibleMarkup(textInput.value);
+      updateView();
+  });
 
   // The text that loads when the page first opens is now pulled from biblecontents.txt,
   // a plain text file that must sit in the same directory as this HTML file. Edit that
@@ -1062,38 +1108,46 @@
   const fallbackText = `<h1> Psalms </h1>
 `;
 
-  fetch('biblecontents.txt')
-      .then(response => {
-          if (!response.ok) throw new Error('biblecontents.txt not found');
-          return response.text();
-      })
-      .then(text => {
-          textInput.value = text;
-          updateView();
-          // Wait a frame so layout has settled before measuring scroll position
-          requestAnimationFrame(handleHashNavigation);
-      })
-      .catch(err => {
-          // biblecontents.txt is missing (or failed to load) — try the family variant
-          // before falling back to the built-in placeholder text.
-          console.warn('Could not load biblecontents.txt, trying biblecontentsfamily.txt.', err);
-          fetch('biblecontentsfamily.txt')
-              .then(response => {
-                  if (!response.ok) throw new Error('biblecontentsfamily.txt not found');
-                  return response.text();
-              })
-              .then(text => {
-                  textInput.value = text;
-                  updateView();
-                  requestAnimationFrame(handleHashNavigation);
-              })
-              .catch(err2 => {
-                  console.warn('Could not load biblecontentsfamily.txt, using fallback text.', err2);
-                  textInput.value = fallbackText;
-                  updateView();
-                  requestAnimationFrame(handleHashNavigation);
-              });
-      });
+  const savedBibleMarkup = safeGetStorage('bibleBuilderMarkup');
+  if (savedBibleMarkup) {
+      // Previously-edited content takes priority over the on-disk file.
+      textInput.value = savedBibleMarkup;
+      updateView();
+      requestAnimationFrame(handleHashNavigation);
+  } else {
+      fetch('biblecontents.txt')
+          .then(response => {
+              if (!response.ok) throw new Error('biblecontents.txt not found');
+              return response.text();
+          })
+          .then(text => {
+              textInput.value = text;
+              updateView();
+              // Wait a frame so layout has settled before measuring scroll position
+              requestAnimationFrame(handleHashNavigation);
+          })
+          .catch(err => {
+              // biblecontents.txt is missing (or failed to load) — try the family variant
+              // before falling back to the built-in placeholder text.
+              console.warn('Could not load biblecontents.txt, trying biblecontentsfamily.txt.', err);
+              fetch('biblecontentsfamily.txt')
+                  .then(response => {
+                      if (!response.ok) throw new Error('biblecontentsfamily.txt not found');
+                      return response.text();
+                  })
+                  .then(text => {
+                      textInput.value = text;
+                      updateView();
+                      requestAnimationFrame(handleHashNavigation);
+                  })
+                  .catch(err2 => {
+                      console.warn('Could not load biblecontentsfamily.txt, using fallback text.', err2);
+                      textInput.value = fallbackText;
+                      updateView();
+                      requestAnimationFrame(handleHashNavigation);
+                  });
+          });
+  }
 </script>
 
 </body>
