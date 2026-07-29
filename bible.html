@@ -122,7 +122,9 @@
   /* h4: the opposite of h3 — it appears in the table of contents (styled like the h3 TOC
      entries) and links down to this exact spot, but renders nothing visible in the section
      body itself. It's kept in normal document flow (not display:none) so smooth-scrolling to
-     it still works; it's just collapsed to zero height and hidden from view. */
+     it still works; it's just collapsed to zero height and hidden from view — unless it's the
+     active reading portion (see .h4-section-highlight below), in which case it's shown as the
+     start line of that portion. */
   .sub-header-anchor { grid-column: 1 / -1; height: 0; margin: 0; padding: 0; border: 0; overflow: hidden; visibility: hidden; scroll-margin-top: 20px; }
 
   .text-segment { padding: 12px; background-color: #ffffff; border: 1px solid transparent; border-radius: 4px; font-family: Georgia, 'Times New Roman', serif; line-height: 1.6; }
@@ -130,10 +132,15 @@
   .highlight-blue { background-color: #e3f2fd !important; border-color: #bbdefb !important; }
 
   /* Marks the h4 line that was just navigated to from the verse picker / Today's Verses
-     panel: a red vertical line down the left edge of that line, so it's obvious where the
-     assigned reading starts. Applied to both columns so it still shows up correctly when
-     the original-text column is hidden (see body.hide-left below). */
-  .h4-section-highlight { border-left: 4px solid #d32f2f !important; padding-left: 8px; }
+     panel as the start of that reading portion: makes it visible (it's a .sub-header-anchor,
+     hidden/zero-height by default) and gives it a red vertical line down the left edge. */
+  .sub-header-anchor.h4-section-highlight {
+      height: auto; visibility: visible; overflow: visible;
+      padding: 10px 12px; margin-top: 4px;
+      background: #ffffff; font-weight: 700;
+      font-family: 'Trebuchet MS', 'Trebuchet SMS', sans-serif;
+      border-left: 4px solid #d32f2f; padding-left: 8px;
+  }
   /* Marks the last line of that reading portion: a red line under it, sitting just above the
      next h4 anchor, to show where the reading portion ends. */
   .h4-section-highlight-end { border-bottom: 3px solid #d32f2f !important; }
@@ -797,17 +804,23 @@
       target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  // Keeps the existing behavior of marking the h4's own line with a red vertical line down
-  // the left edge, and adds one thing on top of that: a red horizontal line under the last
-  // line of that reading portion (i.e. just above wherever the next h4 anchor sits), so the
-  // end of the portion is as clear as the start. Any previous marking is cleared first, so
-  // only one reading portion is ever marked at a time — clicking a different entry in the
-  // verse picker / Today's Verses panel resets it to the new spot.
+  // Marks the h4 anchor that was just navigated to as the visible "start" line of that
+  // reading portion (it's hidden/zero-height by default — see .sub-header-anchor — and only
+  // shown once it's marked active), and puts a red horizontal line under the last text line
+  // of that portion (i.e. just above wherever the next h4 anchor sits) to mark where it ends.
+  // Any previous marking is cleared first, so only one reading portion is ever marked at a
+  // time — clicking a different entry in the verse picker / Today's Verses panel resets it.
   function highlightVerseSection(anchorEl) {
-      document.querySelectorAll('.h4-section-highlight').forEach((el) => el.classList.remove('h4-section-highlight'));
+      document.querySelectorAll('.h4-section-highlight').forEach((el) => {
+          el.classList.remove('h4-section-highlight');
+          el.setAttribute('aria-hidden', 'true');
+      });
       document.querySelectorAll('.h4-section-highlight-end').forEach((el) => el.classList.remove('h4-section-highlight-end'));
 
       if (!anchorEl || !anchorEl.classList || !anchorEl.classList.contains('sub-header-anchor')) return;
+
+      anchorEl.classList.add('h4-section-highlight');
+      anchorEl.removeAttribute('aria-hidden');
 
       const lines = [];
       let node = anchorEl.nextElementSibling;
@@ -816,12 +829,7 @@
           node = node.nextElementSibling;
       }
 
-      if (!lines.length) return;
-
-      // First line (the h4's own col-left/col-right pair) gets the vertical marker, same as before.
-      lines.slice(0, 2).forEach((el) => el.classList.add('h4-section-highlight'));
-
-      // Last line's col-left/col-right pair gets the new horizontal end marker.
+      // Last line's col-left/col-right pair gets the horizontal end marker.
       lines.slice(-2).forEach((el) => el.classList.add('h4-section-highlight-end'));
   }
 
@@ -990,9 +998,11 @@
 
                   (currentH1Body || outputDisplay).appendChild(sectionCard);
               } else if (headingLevel === 'h4') {
-                  // h4 is a pure TOC anchor: it's linked to from the table of contents, but
-                  // renders no visible heading in the section body — just an invisible,
-                  // zero-height scroll target sitting in the current grid.
+                  // h4 is normally a pure TOC anchor: it's linked to from the table of contents,
+                  // but renders no visible heading in the section body — just an invisible,
+                  // zero-height scroll target sitting in the current grid. It only becomes
+                  // visible when it's the active reading portion (see highlightVerseSection),
+                  // at which point it shows its own text as the "start" line.
                   if (!currentGrid) {
                       currentGrid = makeGrid();
                       (currentH1Body || outputDisplay).appendChild(currentGrid);
@@ -1001,6 +1011,7 @@
                   const anchor = document.createElement('div');
                   anchor.id = chapterId;
                   anchor.className = 'sub-header-anchor';
+                  anchor.textContent = rawTitleText;
                   anchor.setAttribute('aria-hidden', 'true');
                   currentGrid.appendChild(anchor);
               } else {
