@@ -1100,34 +1100,27 @@
   });
 
   toggleLeft.addEventListener('change', function() {
-      // Toggling the original-text column changes how every line wraps, which changes the
-      // page's height above the current scroll position and makes the browser's default
-      // scroll behavior feel like a jump. To avoid that, pick whatever element is currently
-      // sitting at the top of the viewport, remember its position, make the change, then
-      // scroll by however much that same element moved — so the top of the view stays put
-      // and the new/removed column's text simply expands or contracts downward instead.
+      // Keep the view from jumping when the original-text column appears/disappears: find
+      // whichever line is currently at the top of the screen, hold onto that exact element,
+      // make the change, then put that same element straight back at the top instantly (no
+      // animation). Because it's the literal same DOM node before and after, this can't drift
+      // out of sync the way computing pixel offsets can.
       //
-      // The sample point is taken near the right edge, inside the col-right (translated)
-      // column, on purpose: col-right is never display:none'd by this toggle (only col-left
-      // is), so it stays in the layout and keeps a meaningful position in both states. Sampling
-      // from the middle risked landing on col-left, which vanishes when it's hidden, making its
-      // rect collapse to 0 and throwing the scroll compensation off.
-      let anchorEl = document.elementFromPoint(Math.max(window.innerWidth - 10, 0), 1);
-      const beforeTop = anchorEl ? anchorEl.getBoundingClientRect().top : null;
+      // One wrinkle: if the top line's col-left (original text) happens to be the element
+      // sampled, and this toggle is about to hide it (display:none), that same node won't be
+      // scrollable-to anymore. So in that case, hold onto its col-right partner instead — it's
+      // the very next sibling (they're always added to the grid as a pair) and is never hidden
+      // by this toggle either way.
+      let anchorEl = document.elementFromPoint(Math.floor(window.innerWidth / 2), 5);
+      if (anchorEl && anchorEl.classList && anchorEl.classList.contains('col-left')) {
+          anchorEl = anchorEl.nextElementSibling || anchorEl;
+      }
 
       document.body.classList.toggle('hide-left', !this.checked);
       document.getElementById('leftLabel').textContent = this.checked ? "Hide Original Text" : "Show Original Text";
 
-      if (anchorEl) {
-          let afterRect = anchorEl.getBoundingClientRect();
-          // Defensive fallback: if the sampled element ended up hidden anyway (all-zero rect),
-          // fall back to its row/grid container, which is never hidden by this toggle.
-          if (afterRect.top === 0 && afterRect.left === 0 && afterRect.width === 0 && afterRect.height === 0) {
-              const fallback = anchorEl.closest('.grid-container, .chapter-card') || anchorEl.parentElement;
-              if (fallback) afterRect = fallback.getBoundingClientRect();
-          }
-          const diff = afterRect.top - beforeTop;
-          if (diff !== 0) window.scrollBy(0, diff);
+      if (anchorEl && typeof anchorEl.scrollIntoView === 'function') {
+          anchorEl.scrollIntoView({ behavior: 'instant', block: 'start' });
       }
   });
 
