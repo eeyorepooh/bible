@@ -1,6 +1,6 @@
 // Bumping this version string forces the service worker to re-cache everything
 // on the next visit — do this whenever you update any of the cached files below.
-const CACHE_NAME = 'bible-site-cache-v9';
+const CACHE_NAME = 'bible-site-cache-v10';
 
 // List every file the site needs in order to fully load with no network connection.
 // Add any other pages/assets you have (e.g. index.html, manifest.json, icons) here.
