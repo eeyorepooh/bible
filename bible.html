@@ -777,6 +777,24 @@
       }
   });
 
+  // Close the Today's Verses panel and/or the calendar popup on any click that lands outside
+  // both of them and outside their own toggle buttons — clicking the toggle buttons is already
+  // handled above, so this only needs to catch everything else.
+  document.addEventListener('click', function(e) {
+      if (!versesSummaryBox.classList.contains('hidden-box') &&
+          !versesSummaryBox.contains(e.target) &&
+          !toggleVersesSummary.contains(e.target)) {
+          versesSummaryBox.classList.add('hidden-box');
+          toggleVersesSummary.classList.remove('active');
+      }
+      if (!calendarPopup.classList.contains('hidden-box') &&
+          !calendarPopup.contains(e.target) &&
+          !toggleCalendarPopup.contains(e.target)) {
+          calendarPopup.classList.add('hidden-box');
+          toggleCalendarPopup.classList.remove('active');
+      }
+  });
+
   // Keep the verses panel live if verse.html (or another tab of this page) changes shared storage
   window.addEventListener('storage', function(e) {
       if (e.key === 'checklistNumberInput' || e.key === 'verseBuilderMarkup' || e.key === 'bibleVersesChecked') {
