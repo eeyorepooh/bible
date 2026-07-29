@@ -129,14 +129,13 @@
   .col-right { letter-spacing: 2px; font-weight: 600; text-transform: uppercase; }
   .highlight-blue { background-color: #e3f2fd !important; border-color: #bbdefb !important; }
 
-  /* Marks the run of lines belonging to the reading portion (h4) that was just navigated to
-     from the verse picker / Today's Verses panel: a red vertical line down the left edge of
-     every line in that section, so it's obvious where the assigned reading starts and runs
-     through. Applied to both columns so it still shows up correctly when the original-text
-     column is hidden (see body.hide-left below). */
+  /* Marks the h4 line that was just navigated to from the verse picker / Today's Verses
+     panel: a red vertical line down the left edge of that line, so it's obvious where the
+     assigned reading starts. Applied to both columns so it still shows up correctly when
+     the original-text column is hidden (see body.hide-left below). */
   .h4-section-highlight { border-left: 4px solid #d32f2f !important; padding-left: 8px; }
-  /* Marks the last line of that section: a red line under it, sitting just above the next
-     h4 anchor, to show where the reading portion ends. */
+  /* Marks the last line of that reading portion: a red line under it, sitting just above the
+     next h4 anchor, to show where the reading portion ends. */
   .h4-section-highlight-end { border-bottom: 3px solid #d32f2f !important; }
 
   body.hide-left .col-left { display: none !important; }
@@ -798,11 +797,12 @@
       target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  // Marks the lines belonging to a reading portion (an h4 anchor) with a red vertical line
-  // down the left edge, and puts a red horizontal line under the last line of that portion
-  // (i.e. just above wherever the next h4 anchor sits) to mark where it ends. Any previous
-  // marking is cleared first, so only one reading portion is ever marked at a time — clicking
-  // a different entry in the verse picker / Today's Verses panel resets it to the new spot.
+  // Keeps the existing behavior of marking the h4's own line with a red vertical line down
+  // the left edge, and adds one thing on top of that: a red horizontal line under the last
+  // line of that reading portion (i.e. just above wherever the next h4 anchor sits), so the
+  // end of the portion is as clear as the start. Any previous marking is cleared first, so
+  // only one reading portion is ever marked at a time — clicking a different entry in the
+  // verse picker / Today's Verses panel resets it to the new spot.
   function highlightVerseSection(anchorEl) {
       document.querySelectorAll('.h4-section-highlight').forEach((el) => el.classList.remove('h4-section-highlight'));
       document.querySelectorAll('.h4-section-highlight-end').forEach((el) => el.classList.remove('h4-section-highlight-end'));
@@ -812,15 +812,16 @@
       const lines = [];
       let node = anchorEl.nextElementSibling;
       while (node && !node.classList.contains('sub-header-anchor')) {
-          if (node.classList.contains('text-segment')) {
-              node.classList.add('h4-section-highlight');
-              lines.push(node);
-          }
+          if (node.classList.contains('text-segment')) lines.push(node);
           node = node.nextElementSibling;
       }
 
-      // The final line is made of a col-left/col-right pair — the last two entries collected —
-      // so mark both with the end-line class to draw the horizontal line under the full row.
+      if (!lines.length) return;
+
+      // First line (the h4's own col-left/col-right pair) gets the vertical marker, same as before.
+      lines.slice(0, 2).forEach((el) => el.classList.add('h4-section-highlight'));
+
+      // Last line's col-left/col-right pair gets the new horizontal end marker.
       lines.slice(-2).forEach((el) => el.classList.add('h4-section-highlight-end'));
   }
 
