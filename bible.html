@@ -1099,27 +1099,32 @@
       document.getElementById('inputLabel').textContent = this.checked ? "Hide Input Box" : "Show Input Box";
   });
 
-  toggleLeft.addEventListener('change', function() {
-      // Keep the view from jumping when the original-text column appears/disappears: find
-      // whichever line is currently at the top of the screen, hold onto that exact element,
-      // make the change, then put that same element straight back at the top instantly (no
-      // animation). Because it's the literal same DOM node before and after, this can't drift
-      // out of sync the way computing pixel offsets can.
-      //
-      // One wrinkle: if the top line's col-left (original text) happens to be the element
-      // sampled, and this toggle is about to hide it (display:none), that same node won't be
-      // scrollable-to anymore. So in that case, hold onto its col-right partner instead — it's
-      // the very next sibling (they're always added to the grid as a pair) and is never hidden
-      // by this toggle either way.
-      let anchorEl = document.elementFromPoint(Math.floor(window.innerWidth / 2), 5);
-      if (anchorEl && anchorEl.classList && anchorEl.classList.contains('col-left')) {
-          anchorEl = anchorEl.nextElementSibling || anchorEl;
+  // Scans the actual reading lines in document order and returns the first one currently
+  // visible at or below the top of the screen — i.e. whichever line the reader is currently
+  // at. Always checks col-right (never col-left): col-right exists and is visible in both
+  // toggle states (only col-left ever gets hidden), and content inside a collapsed <details>
+  // section naturally reports a collapsed rect (height 0), so it's skipped automatically
+  // without any extra bookkeeping.
+  function findTopVisibleLine() {
+      const lines = document.querySelectorAll('.text-segment.col-right');
+      for (const el of lines) {
+          const rect = el.getBoundingClientRect();
+          if (rect.height > 0 && rect.bottom > 0) return el;
       }
+      return null;
+  }
+
+  toggleLeft.addEventListener('change', function() {
+      // Keep the view from jumping when the original-text column appears/disappears: find the
+      // line the reader is currently at, make the change, then put that same line straight
+      // back at the top instantly (no animation) — so it stays put and everything else simply
+      // expands or contracts below it.
+      const anchorEl = findTopVisibleLine();
 
       document.body.classList.toggle('hide-left', !this.checked);
       document.getElementById('leftLabel').textContent = this.checked ? "Hide Original Text" : "Show Original Text";
 
-      if (anchorEl && typeof anchorEl.scrollIntoView === 'function') {
+      if (anchorEl) {
           anchorEl.scrollIntoView({ behavior: 'instant', block: 'start' });
       }
   });
